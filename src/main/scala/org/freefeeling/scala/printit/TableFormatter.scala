@@ -9,10 +9,12 @@ trait TableFormatter {
 
   def splitSize: Int = 100
 
-  def format[T, RE <: Decoder2Table[T]](container: T)(implicit extractor: RE, rowStringer: Row2String[RE#R]): Iterator[String] = {
+  // def format[T, RE <: Decoder2Table[T]](container: T)(implicit extractor: RE, rowStringer: Row2String[RE#R]): Iterator[String]
+  // def format[T](container: T)(implicit extractor: Decoder2Table[T], rowStringer: Row2String[extractor.R]): Iterator[String]
+  def format[T, R](container: T)(implicit extractor: Decoder2Table.Aux[T, R], rowStringer: Row2String[R]): Iterator[String] = {
     val table = extractor.decode(container)
     val head = table.columnNames
-    val rows = table.rows.map(rowStringer.stringify)
+    val rows = table.rows.map(rowStringer.apply)
     format(head, rows)
   }
 
@@ -23,9 +25,16 @@ trait TableFormatter {
       " " + str + " " * (length - str.length) + " "
   }
 
+  /**
+    * sizes consist of the length of each column header
+    * @param sizes
+    * @param header
+    * @param rows
+    * @return
+    */
   protected def _format(sizes: Array[Int], header: Option[Seq[String]], rows: Iterator[Seq[String]]): Iterator[String] = {
 
-    val rowGroups = rows.sliding(splitSize, splitSize)
+    val rowGroups = rows.grouped(splitSize)
 
     val firstGroup = rowGroups.next()
 
@@ -59,6 +68,12 @@ trait TableFormatter {
 
   }
 
+  /**
+    * if there is not header, use 1 to n as the header
+    * @param header
+    * @param rows
+    * @return
+    */
   def format(header: Option[Seq[String]], rows: Iterator[Seq[String]]): Iterator[String] = {
     val sizes = header.map(_.map(_.length).toArray)
     if (sizes.isEmpty) {
@@ -85,7 +100,15 @@ object TableFormatter {
 
   trait Decoder2Table[C] {
     type R
+
     def decode(c: C): Table[C, R]
+
+    def rowStringifer(rs: Row2String[R]) = rs
+  }
+
+  object Decoder2Table{
+    // to overcome scala limitation on dependent method type
+    type Aux[C0, R0] = Decoder2Table[C0] { type R = R0  }
   }
 
   trait Table[C, R] {
@@ -99,16 +122,17 @@ object TableFormatter {
   }
 
   trait Row2String[R] {
-    def stringify(r: R): Seq[String]
+    def apply(r: R): Seq[String]
   }
 
   implicit class TablePrint[T](val v: T) extends AnyVal {
-    def table[DT <: Decoder2Table[T]](implicit extractor: DT, rowStringer: Row2String[DT#R]) = {
+    def table(implicit columnNames: Seq[String]) = ???
+    def tstr[R](implicit extractor: Decoder2Table.Aux[T, R], rowStringer: Row2String[R]) = {
       defaultTF.format(v)
     }
 
-    def pta[DT <: Decoder2Table[T]](implicit extractor: DT, rowStringer: Row2String[DT#R]) = {
-      table.foreach(println)
+    def pta[R](implicit extractor: Decoder2Table.Aux[T, R], rowStringer: Row2String[R]) = {
+      tstr.foreach(println)
     }
   }
 
