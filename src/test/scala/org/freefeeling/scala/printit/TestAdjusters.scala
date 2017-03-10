@@ -12,6 +12,7 @@ import shapeless._
 class TestAdjusters extends FlatSpec{
 
   "An Row2String instance for a HList" should "exists" in {
+    assertCompiles("implicitly[Row2String[HNil]]")
     assertCompiles("implicitly[Row2String[Int :: HNil]]")
   }
 
