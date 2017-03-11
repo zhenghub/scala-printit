@@ -9,4 +9,6 @@ object TestUtils {
     def table = s.stripMargin.split("\n").map(_.trim).filter(_.length > 0)
   }
 
+  case class Person(name: String, age: Int)
+
 }
